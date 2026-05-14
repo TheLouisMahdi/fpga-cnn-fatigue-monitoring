@@ -1,0 +1,68 @@
+# Python cache
+__pycache__
+.pyc
+.pyo
+.pyd
+.venv
+venv
+env
+
+# Logs and generated data
+.csv
+.xlsx
+fatigue_log.csv
+fatigue_log.xlsx
+
+# Generated FPGA ROI  feature outputs
+FPGApmem.txt
+FPGApmemfpga_features_.txt
+FPGApmempython_features_.txt
+FPGApmemgolden_.txt
+pythonfpga_rois
+fpga_rois
+
+# Keep input hex examples if needed
+# If you want to upload sample inputs, comment these three lines
+FPGApmemleft_eye.hex
+FPGApmemright_eye.hex
+FPGApmemmouth.hex
+
+# ModelSim  simulation generated files
+work
+rtl_work
+transcript
+vsim.wlf
+.wlf
+.vcd
+.do.bak
+modelsim.ini
+
+# Quartus generated files
+db
+incremental_db
+output_files
+simulation
+greybox_tmp
+.rpt
+.summary
+.done
+.smsg
+.qws
+.sld
+.sof
+.pof
+.jic
+.pin
+.sta.rpt
+.fit.rpt
+.map.rpt
+.flow.rpt
+.asm.rpt
+.qdf
+.qws
+
+# OS  editor
+.DS_Store
+Thumbs.db
+.vscode
+.idea
