@@ -1,3 +1,4 @@
+*.bak
 # Python cache
 __pycache__
 .pyc
@@ -66,3 +67,14 @@ greybox_tmp
 Thumbs.db
 .vscode
 .idea
+
+# Quartus project workspace/report files
+*.qws
+*_nativelink_simulation.rpt
+
+# ModelSim notes / run logs
+*modelsim*.txt
+modelsim run.txt
+
+# FPGA runtime memory files
+FPGAp/mem/
