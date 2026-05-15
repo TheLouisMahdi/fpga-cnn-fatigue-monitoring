@@ -31,6 +31,13 @@ from config import (
 
 
 # ============================================================
+# Required FPGA ROI names
+# ============================================================
+
+REQUIRED_ROI_SET = {"left_eye", "right_eye", "mouth"}
+
+
+# ============================================================
 # Helper functions
 # ============================================================
 
@@ -123,6 +130,9 @@ logger = DataLogger()
 
 last_log_time = time.time()
 
+# Keep last generated features for UI display.
+last_python_features = None
+
 
 try:
     while True:
@@ -150,6 +160,7 @@ try:
         # Default values
         rois = {}
         python_features = None
+        saved_paths = {}
 
         # ========================================================
         # Face detected
@@ -180,47 +191,16 @@ try:
 
             rois = extract_fpga_rois(raw_frame, face_landmarks)
 
-            # Save ROI inputs directly into FPGA/ModelSim mem folder.
-            # Verilog reads:
-            #   FPGAp/mem/left_eye.hex
-            #   FPGAp/mem/right_eye.hex
-            #   FPGAp/mem/mouth.hex
-
-            saved_paths = save_fpga_rois(
-                rois,
-                output_dir=FPGA_MEM_DIR,
-                save_txt=True,
-                save_hex=True
-            )
-
-            # Optional backup copy for manual checking.
-            save_fpga_rois_backup(
-                rois,
-                output_dir=FPGA_ROI_DIR
-            )
-
-            # ====================================================
-            # Python golden feature generation
-            # ====================================================
-            # This matches FPGA:
-            #   6 fixed kernels
-            #   ReLU + clip
-            #   MaxPool
-            #   sum / max / energy
-            #
-            # Output:
-            #   python_features_left_eye.txt
-            #   python_features_right_eye.txt
-            #   python_features_mouth.txt
-            # ====================================================
-
-            python_features = generate_python_golden_features(
-                rois,
-                output_dir=FPGA_MEM_DIR
-            )
+            now = time.time()
+            all_rois_ready = REQUIRED_ROI_SET.issubset(rois.keys())
 
             # ====================================================
             # Fatigue state update
+            # ====================================================
+            # Note:
+            #   python_features is generated only periodically.
+            #   Between save intervals, it stays None.
+            #   FatigueState supports fpga_features=None safely.
             # ====================================================
 
             info = state.update(
@@ -229,13 +209,45 @@ try:
                 fpga_features=python_features
             )
 
-            now = time.time()
-
             # ====================================================
-            # Periodic logging
+            # Periodic save + logging
+            # ====================================================
+            # Heavy disk writes are done only every LOG_INTERVAL_SEC.
+            # This avoids writing HEX/TXT files on every camera frame.
             # ====================================================
 
             if now - last_log_time >= LOG_INTERVAL_SEC:
+                if all_rois_ready:
+                    saved_paths = save_fpga_rois(
+                        rois,
+                        output_dir=FPGA_MEM_DIR,
+                        save_txt=True,
+                        save_hex=True
+                    )
+
+                    save_fpga_rois_backup(
+                        rois,
+                        output_dir=FPGA_ROI_DIR
+                    )
+
+                    python_features = generate_python_golden_features(
+                        rois,
+                        output_dir=FPGA_MEM_DIR
+                    )
+
+                    last_python_features = python_features
+                else:
+                    python_features = None
+                    last_python_features = None
+
+                # Re-update state with generated features for this log row.
+                # This keeps fpga_available accurate in the saved log.
+                info = state.update(
+                    ear,
+                    mar,
+                    fpga_features=python_features
+                )
+
                 logger.add(
                     ear,
                     mar,
@@ -247,11 +259,18 @@ try:
 
                 print("Saved FPGA ROI inputs to:", FPGA_MEM_DIR)
                 print("Saved ROI names:", list(rois.keys()))
+                print("All ROIs ready:", all_rois_ready)
                 print("Saved paths:", saved_paths)
-                print("Saved Python golden features:", list(python_features.keys()))
+
+                if python_features:
+                    print("Saved Python golden features:", list(python_features.keys()))
+                else:
+                    print("Python golden features: not generated")
+
                 print("EAR:", round(ear, 4), "MAR:", round(mar, 4))
                 print("State:", info["fatigue_state"])
                 print("Attention:", info["attention_score"])
+                print("-" * 60)
 
                 last_log_time = now
 
@@ -260,36 +279,36 @@ try:
             # ====================================================
 
             if DRAW_UI:
-                draw_text(frame, f"EAR: {ear:.3f}", 20, 40, color=(0, 255, 255))
-                draw_text(frame, f"L_EAR: {left_ear:.3f}", 20, 70, color=(0, 255, 255))
-                draw_text(frame, f"R_EAR: {right_ear:.3f}", 20, 100, color=(0, 255, 255))
-                draw_text(frame, f"MAR: {mar:.3f}", 20, 130, color=(0, 255, 255))
+                draw_text(frame, f"EAR: {ear:.3f}", 20, 35, color=(0, 255, 255), scale=0.6)
+                draw_text(frame, f"L_EAR: {left_ear:.3f}", 20, 60, color=(0, 255, 255), scale=0.6)
+                draw_text(frame, f"R_EAR: {right_ear:.3f}", 20, 85, color=(0, 255, 255), scale=0.6)
+                draw_text(frame, f"MAR: {mar:.3f}", 20, 110, color=(0, 255, 255), scale=0.6)
 
-                draw_text(frame, f"PERCLOS: {info['perclos']:.2f}", 20, 170)
-                draw_text(frame, f"Closed: {info['closed']}", 20, 200)
-                draw_text(frame, f"CloseDur: {info['current_closure_duration']:.2f}s", 20, 230)
+                draw_text(frame, f"PERCLOS: {info['perclos']:.2f}", 20, 145, scale=0.6)
+                draw_text(frame, f"Closed: {info['closed']}", 20, 170, scale=0.6)
+                draw_text(frame, f"CloseDur: {info['current_closure_duration']:.2f}s", 20, 195, scale=0.6)
 
-                draw_text(frame, f"Blink: {info['blink_count']}", 20, 260)
-                draw_text(frame, f"LongClose: {info['long_closure_count']}", 20, 290)
-                draw_text(frame, f"Yawn: {info['yawn_count']}", 20, 320)
-                draw_text(frame, f"Microsleep: {info['microsleep_count']}", 20, 350)
+                draw_text(frame, f"Blink: {info['blink_count']}", 20, 225, scale=0.6)
+                draw_text(frame, f"LongClose: {info['long_closure_count']}", 20, 250, scale=0.6)
+                draw_text(frame, f"Yawn: {info['yawn_count']}", 20, 275, scale=0.6)
+                draw_text(frame, f"Microsleep: {info['microsleep_count']}", 20, 300, scale=0.6)
 
                 draw_text(
                     frame,
                     f"State: {info['fatigue_state']}",
                     20,
-                    390,
+                    335,
                     color=(0, 0, 255),
-                    scale=0.9
+                    scale=0.7
                 )
 
                 draw_text(
                     frame,
                     f"Attention: {info['attention_score']}",
                     20,
-                    430,
+                    365,
                     color=(0, 0, 255),
-                    scale=0.9
+                    scale=0.7
                 )
 
                 roi_names_text = ",".join(rois.keys()) if rois else "none"
@@ -298,27 +317,39 @@ try:
                     frame,
                     f"ROIs: {roi_names_text}",
                     20,
-                    465,
+                    400,
                     color=(0, 255, 0),
-                    scale=0.65
+                    scale=0.55,
+                    thickness=1
                 )
 
-                if python_features:
+                draw_text(
+                    frame,
+                    f"All ROIs ready: {all_rois_ready}",
+                    20,
+                    425,
+                    color=(0, 255, 0),
+                    scale=0.55,
+                    thickness=1
+                )
+
+                # Show last saved feature summary, not per-frame generated features.
+                if last_python_features:
                     left_summary = summarize_feature_vector(
-                        python_features.get("left_eye")
+                        last_python_features.get("left_eye")
                     )
                     right_summary = summarize_feature_vector(
-                        python_features.get("right_eye")
+                        last_python_features.get("right_eye")
                     )
                     mouth_summary = summarize_feature_vector(
-                        python_features.get("mouth")
+                        last_python_features.get("mouth")
                     )
 
                     draw_text(
                         frame,
                         f"L FPGA: {left_summary}",
-                        20,
-                        495,
+                        330,
+                        35,
                         color=(0, 255, 0),
                         scale=0.45,
                         thickness=1
@@ -327,8 +358,8 @@ try:
                     draw_text(
                         frame,
                         f"R FPGA: {right_summary}",
-                        20,
-                        520,
+                        330,
+                        60,
                         color=(0, 255, 0),
                         scale=0.45,
                         thickness=1
@@ -337,8 +368,8 @@ try:
                     draw_text(
                         frame,
                         f"M FPGA: {mouth_summary}",
-                        20,
-                        545,
+                        330,
+                        85,
                         color=(0, 255, 0),
                         scale=0.45,
                         thickness=1
