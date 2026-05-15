@@ -1,5 +1,3 @@
-`timescale 1ns/1ps
-
 // ============================================================
 // tb_cnn_feature_extractor_all_top.v
 //
@@ -38,6 +36,8 @@
 // These outputs are compared with Python golden_model.py.
 // ============================================================
 
+`timescale 1ns/1ps
+
 module tb_cnn_feature_extractor_all_top;
 
     reg clk;
@@ -50,6 +50,21 @@ module tb_cnn_feature_extractor_all_top;
     wire [575:0] left_features;
     wire [575:0] right_features;
     wire [575:0] mouth_features;
+
+    // ========================================================
+    // Clock generation
+    // 100 MHz simulation clock
+    // Period = 10 ns
+    // ========================================================
+
+    initial begin
+        clk = 1'b0;
+        forever #5 clk = ~clk;
+    end
+
+    // ========================================================
+    // DUT
+    // ========================================================
 
     cnn_feature_extractor_all_top #(
         .LEFT_MEM_FILE("../mem/left_eye.hex"),
@@ -68,90 +83,132 @@ module tb_cnn_feature_extractor_all_top;
         .mouth_features(mouth_features)
     );
 
-    initial begin
-        clk = 1'b0;
-        forever #5 clk = ~clk;
-    end
+    // ========================================================
+    // Task: write 18 packed 32-bit features to text file
+    //
+    // Feature order:
+    //   0  vertical_sum
+    //   1  vertical_max
+    //   2  vertical_energy
+    //   3  horizontal_sum
+    //   4  horizontal_max
+    //   5  horizontal_energy
+    //   6  diag45_sum
+    //   7  diag45_max
+    //   8  diag45_energy
+    //   9  diag135_sum
+    //   10 diag135_max
+    //   11 diag135_energy
+    //   12 sharpen_sum
+    //   13 sharpen_max
+    //   14 sharpen_energy
+    //   15 center_sum
+    //   16 center_max
+    //   17 center_energy
+    // ========================================================
 
-    integer fout_left;
-    integer fout_right;
-    integer fout_mouth;
-    integer i;
+    task write_feature_file;
+        input integer fd;
+        input [575:0] features;
+
+        integer i;
+        reg [31:0] value;
+
+        begin
+            for (i = 0; i < 18; i = i + 1) begin
+                value = features[i*32 +: 32];
+                $fdisplay(fd, "%0d", value);
+            end
+        end
+    endtask
+
+    integer fd_left;
+    integer fd_right;
+    integer fd_mouth;
+
+    integer timeout_counter;
+
+    // ========================================================
+    // Main test sequence
+    // ========================================================
 
     initial begin
+        $display("============================================================");
+        $display("TB: FPGA accelerator verification");
+        $display("TB: Python + FPGA co-processing project");
+        $display("TB: Running three ROI processors in parallel");
+        $display("============================================================");
+
         rst = 1'b1;
         start = 1'b0;
+        timeout_counter = 0;
 
-        fout_left  = $fopen("../mem/fpga_features_left_eye.txt", "w");
-        fout_right = $fopen("../mem/fpga_features_right_eye.txt", "w");
-        fout_mouth = $fopen("../mem/fpga_features_mouth.txt", "w");
-
-        if (fout_left == 0) begin
-            $display("ERROR: cannot open left output file");
-            $stop;
-        end
-
-        if (fout_right == 0) begin
-            $display("ERROR: cannot open right output file");
-            $stop;
-        end
-
-        if (fout_mouth == 0) begin
-            $display("ERROR: cannot open mouth output file");
-            $stop;
-        end
-
-        #50;
+        // Reset
+        repeat (10) @(posedge clk);
         rst = 1'b0;
 
-        #30;
+        repeat (5) @(posedge clk);
+
+        // Start pulse
+        $display("TB: Start pulse sent.");
         start = 1'b1;
-        #10;
+        @(posedge clk);
         start = 1'b0;
 
-        $display("FPGA accelerator verification started...");
-        $display("Python-generated ROI inputs:");
-        $display("../mem/left_eye.hex");
-        $display("../mem/right_eye.hex");
-        $display("../mem/mouth.hex");
+        // Wait for done with timeout
+        while ((done !== 1'b1) && (timeout_counter < 2000000)) begin
+            @(posedge clk);
+            timeout_counter = timeout_counter + 1;
+        end
 
-        wait(done == 1'b1);
+        if (timeout_counter >= 2000000) begin
+            $display("ERROR: Timeout. done did not assert.");
+            $display("busy=%b done=%b", busy, done);
+            $stop;
+        end
 
-        $display("FPGA accelerator verification finished.");
+        $display("TB: done asserted after %0d clock cycles.", timeout_counter);
+
+        repeat (10) @(posedge clk);
+
+        // Open output files
+        fd_left = $fopen("../mem/fpga_features_left_eye.txt", "w");
+        fd_right = $fopen("../mem/fpga_features_right_eye.txt", "w");
+        fd_mouth = $fopen("../mem/fpga_features_mouth.txt", "w");
+
+        if (fd_left == 0) begin
+            $display("ERROR: Could not open ../mem/fpga_features_left_eye.txt");
+            $stop;
+        end
+
+        if (fd_right == 0) begin
+            $display("ERROR: Could not open ../mem/fpga_features_right_eye.txt");
+            $stop;
+        end
+
+        if (fd_mouth == 0) begin
+            $display("ERROR: Could not open ../mem/fpga_features_mouth.txt");
+            $stop;
+        end
+
+        // Write outputs
+        write_feature_file(fd_left, left_features);
+        write_feature_file(fd_right, right_features);
+        write_feature_file(fd_mouth, mouth_features);
+
+        $fclose(fd_left);
+        $fclose(fd_right);
+        $fclose(fd_mouth);
+
+        $display("TB: Output files generated:");
+        $display("    ../mem/fpga_features_left_eye.txt");
+        $display("    ../mem/fpga_features_right_eye.txt");
+        $display("    ../mem/fpga_features_mouth.txt");
+
         $display("============================================================");
-
-        $display("LEFT EYE FEATURES");
-        for (i = 0; i < 18; i = i + 1) begin
-            $display("left feature[%0d] = %d", i, left_features[i*32 +: 32]);
-            $fdisplay(fout_left, "%d", left_features[i*32 +: 32]);
-        end
-
-        $display("------------------------------------------------------------");
-
-        $display("RIGHT EYE FEATURES");
-        for (i = 0; i < 18; i = i + 1) begin
-            $display("right feature[%0d] = %d", i, right_features[i*32 +: 32]);
-            $fdisplay(fout_right, "%d", right_features[i*32 +: 32]);
-        end
-
-        $display("------------------------------------------------------------");
-
-        $display("MOUTH FEATURES");
-        for (i = 0; i < 18; i = i + 1) begin
-            $display("mouth feature[%0d] = %d", i, mouth_features[i*32 +: 32]);
-            $fdisplay(fout_mouth, "%d", mouth_features[i*32 +: 32]);
-        end
-
+        $display("TB: Simulation finished successfully.");
+        $display("TB: Now run python/golden_model.py to check MATCH.");
         $display("============================================================");
-        $display("FPGA accelerator output files saved:");
-        $display("../mem/fpga_features_left_eye.txt");
-        $display("../mem/fpga_features_right_eye.txt");
-        $display("../mem/fpga_features_mouth.txt");
-        $display("Compare them with python_features_*.txt using Python golden_model.py");
-
-        $fclose(fout_left);
-        $fclose(fout_right);
-        $fclose(fout_mouth);
 
         #100;
         $stop;
