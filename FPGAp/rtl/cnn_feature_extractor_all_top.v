@@ -46,9 +46,18 @@
 //   slot 15 = center_sum
 //   slot 16 = center_max
 //   slot 17 = center_energy
+//
+// Notes:
+//   1. Memory file paths are parameterized.
+//   2. done signals from the three ROI processors are latched.
+//   3. Final done becomes 1 after all three ROI processors finish.
 // ============================================================
 
-module cnn_feature_extractor_all_top (
+module cnn_feature_extractor_all_top #(
+    parameter LEFT_MEM_FILE  = "mem/left_eye.hex",
+    parameter RIGHT_MEM_FILE = "mem/right_eye.hex",
+    parameter MOUTH_MEM_FILE = "mem/mouth.hex"
+)(
     input  wire clk,
     input  wire rst,
     input  wire start,
@@ -73,8 +82,57 @@ module cnn_feature_extractor_all_top (
     wire done_right;
     wire done_mouth;
 
+    reg done_left_latched;
+    reg done_right_latched;
+    reg done_mouth_latched;
+
     assign busy = busy_left | busy_right | busy_mouth;
-    assign done = done_left & done_right & done_mouth;
+
+    assign done =
+        done_left_latched &
+        done_right_latched &
+        done_mouth_latched;
+
+    // ============================================================
+    // Done latch logic
+    //
+    // Why:
+    //   done_left, done_right, and done_mouth may be one-clock pulses.
+    //   If one finishes earlier than the others, a simple AND may miss it.
+    //
+    // Behavior:
+    //   rst   -> clear all done flags
+    //   start -> clear all done flags for a new run
+    //   done_x pulse -> latch that ROI as finished
+    // ============================================================
+
+    always @(posedge clk) begin
+        if (rst) begin
+            done_left_latched  <= 1'b0;
+            done_right_latched <= 1'b0;
+            done_mouth_latched <= 1'b0;
+        end
+        else begin
+            if (start) begin
+                done_left_latched  <= 1'b0;
+                done_right_latched <= 1'b0;
+                done_mouth_latched <= 1'b0;
+            end
+            else begin
+                if (done_left) begin
+                    done_left_latched <= 1'b1;
+                end
+
+                if (done_right) begin
+                    done_right_latched <= 1'b1;
+                end
+
+                if (done_mouth) begin
+                    done_mouth_latched <= 1'b1;
+                end
+            end
+        end
+    end
 
     // ============================================================
     // LEFT EYE feature wires
@@ -165,7 +223,7 @@ module cnn_feature_extractor_all_top (
     // ============================================================
 
     cnn_feature_extractor_top #(
-        .MEM_FILE("mem/left_eye.hex")
+        .MEM_FILE(LEFT_MEM_FILE)
     ) u_left_eye (
         .clk(clk),
         .rst(rst),
@@ -204,7 +262,7 @@ module cnn_feature_extractor_all_top (
     // ============================================================
 
     cnn_feature_extractor_top #(
-        .MEM_FILE("mem/right_eye.hex")
+        .MEM_FILE(RIGHT_MEM_FILE)
     ) u_right_eye (
         .clk(clk),
         .rst(rst),
@@ -243,7 +301,7 @@ module cnn_feature_extractor_all_top (
     // ============================================================
 
     cnn_feature_extractor_top #(
-        .MEM_FILE("mem/mouth.hex")
+        .MEM_FILE(MOUTH_MEM_FILE)
     ) u_mouth (
         .clk(clk),
         .rst(rst),
