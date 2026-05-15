@@ -1,7 +1,7 @@
 # camera.py
 
 import cv2
-from config import VIDEO_SOURCE
+from config import VIDEO_SOURCE, FRAME_WIDTH, FRAME_HEIGHT
 
 
 class Camera:
@@ -13,7 +13,11 @@ class Camera:
         if not self.cap.isOpened():
             raise RuntimeError(f"Camera could not be opened: {source}")
 
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
+
         print("Connected!")
+        print(f"Requested frame size: {FRAME_WIDTH}x{FRAME_HEIGHT}")
 
     def read(self):
         ret, frame = self.cap.read()
@@ -37,7 +41,7 @@ if __name__ == "__main__":
         if frame is None:
             continue
 
-        cv2.imshow("IP Webcam Test", frame)
+        cv2.imshow("Camera Test", frame)
 
         if cv2.waitKey(1) & 0xFF == 27:
             break
