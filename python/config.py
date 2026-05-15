@@ -1,13 +1,17 @@
 # config.py
 
+from pathlib import Path
+
+
 # ============================================================
 # Camera / Video Source
 # ============================================================
 
-#VIDEO_SOURCE = "http://10.119.67.20:8080/video"
-
-# Alternative sources:
+# IP Webcam / DroidCam examples:
+# VIDEO_SOURCE = "http://10.119.67.20:8080/video"
 # VIDEO_SOURCE = "http://172.18.20.103:8080/shot.jpg"
+
+# Default webcam:
 VIDEO_SOURCE = 0
 
 
@@ -42,15 +46,35 @@ PERCLOS_FATIGUE_THRESHOLD = 0.22
 # FPGA receives 32x32 grayscale ROI images.
 FPGA_IMAGE_SIZE = 32
 
-# Main FPGA project folder
-FPGA_PROJECT_DIR = r"C:\Users\poimu\Desktop\cnn_fpga_project\FPGAp"
+
+# ============================================================
+# Project Paths
+# ============================================================
+# Expected project structure:
+#
+# cnn_fpga_project/
+# ├── python/
+# │   ├── main.py
+# │   ├── config.py
+# │   └── ...
+# └── FPGAp/
+#     └── mem/
+#
+# These paths are portable and GitHub-friendly.
+# ============================================================
+
+PYTHON_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = PYTHON_DIR.parent
+
+# Main FPGA project folder.
+FPGA_PROJECT_DIR = str(PROJECT_ROOT / "FPGAp")
 
 # ModelSim / Quartus memory folder.
-# Python should save left_eye.hex, right_eye.hex, and mouth.hex here.
-FPGA_MEM_DIR = r"C:\Users\poimu\Desktop\cnn_fpga_project\FPGAp\mem"
+# Python saves left_eye.hex, right_eye.hex, and mouth.hex here.
+FPGA_MEM_DIR = str(Path(FPGA_PROJECT_DIR) / "mem")
 
 # Optional local ROI folder for backup/debug.
-FPGA_ROI_DIR = "fpga_rois"
+FPGA_ROI_DIR = str(PYTHON_DIR / "fpga_rois")
 
 
 # ============================================================
