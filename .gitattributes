@@ -1,0 +1,11 @@
+# ModelSim / QuestaSim simulation scripts
+*.do linguist-language=Tcl
+
+# Verilog files
+*.v linguist-language=Verilog
+
+# SystemVerilog files
+*.sv linguist-language=SystemVerilog
+
+# Python files
+*.py linguist-language=Python
