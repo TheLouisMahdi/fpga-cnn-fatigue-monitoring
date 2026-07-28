@@ -14,6 +14,8 @@
 
 **A hardware-software fatigue monitoring prototype where Python performs vision and decision logic, while FPGA accelerates parallel CNN-style feature extraction from eye and mouth ROIs.**
 
+**Created by [Mahdi Ghahremani (TheLouisMahdi)](https://github.com/TheLouisMahdi), an Electrical Engineering student at the University of Zanjan working on computer vision, FPGA/Verilog RTL, embedded systems, and hardware–software co-design.**
+
 </div>
 
 ---
@@ -349,138 +351,7 @@ The Python pipeline periodically saves ROI HEX files and Python golden feature f
 
 ---
 
-## How to Run the FPGA Simulation
-
-After Python has generated the ROI HEX files, run ModelSim from `FPGAp/sim`:
-
-```tcl
-cd FPGAp/sim
-do run.do
-```
-
-The simulation script compiles the RTL modules, runs the final all-ROI accelerator testbench, and writes the FPGA feature output files into `FPGAp/mem`.
-
-Then run the Python comparison:
-
-```bash
-cd python
-python golden_model.py
-```
-
----
-
-## Validation Checklist
-
-Use this checklist to validate the simulation-based version:
-
-```text
-1. Run Python main.py.
-2. Confirm FPGAp/mem/left_eye.hex exists.
-3. Confirm FPGAp/mem/right_eye.hex exists.
-4. Confirm FPGAp/mem/mouth.hex exists.
-5. Run FPGAp/sim/run.do in ModelSim.
-6. Confirm FPGAp/mem/fpga_features_left_eye.txt exists.
-7. Confirm FPGAp/mem/fpga_features_right_eye.txt exists.
-8. Confirm FPGAp/mem/fpga_features_mouth.txt exists.
-9. Run python/golden_model.py.
-10. Confirm left_eye, right_eye, and mouth all show MATCH.
-```
-
----
-
-## Current Status
-
-| Area | Status |
-|---|---|
-| Python camera pipeline | Done |
-| OpenCV frame handling | Done |
-| MediaPipe FaceMesh integration | Done |
-| Face landmark detection | Done |
-| Left eye, right eye, mouth ROI extraction | Done |
-| EAR / MAR / PERCLOS logic | Done |
-| Blink / yawn / microsleep tracking | Done |
-| Runtime logging | Done |
-| Final fatigue-state decision in Python | Done / evolving |
-| Portable Python paths | Done |
-| ROI-based FPGA input generation | Done |
-| Python golden feature generation | Done |
-| Single-ROI RTL smoke test | Done / optional |
-| Three-ROI RTL top | Done as prototype |
-| Final all-ROI testbench | Added |
-| ModelSim `run.do` script | Added |
-| FPGA vs Python MATCH validation | Needs final local ModelSim run |
-| UART communication | Not completed |
-| Real FPGA board test | Not completed |
-| Multi-kernel expansion | Prototype level |
-| Multi-layer trainable CNN | Not a current goal |
-
----
-
-## Remaining Work
-
-For a simulation-based academic prototype, the main remaining work is:
-
-1. Run Python and generate fresh ROI HEX files.
-2. Run `FPGAp/sim/run.do` in ModelSim.
-3. Confirm the three `fpga_features_*.txt` files are generated.
-4. Run `python/golden_model.py`.
-5. Confirm `left_eye`, `right_eye`, and `mouth` all show `MATCH`.
-6. Capture waveform screenshots and terminal output for documentation.
-7. Add screenshots, waveform images, and a short demo section to the README or report.
-
-For a real hardware deployment, the remaining work is larger:
-
-1. Add UART or another Python to FPGA data-transfer interface.
-2. Add a final hardware top module for board-level integration.
-3. Assign FPGA pins and clock constraints.
-4. Program the Cyclone IV board.
-5. Send ROI data from Python to FPGA in real time.
-6. Receive feature vectors back from FPGA.
-7. Compare real FPGA outputs with Python golden features.
-8. Optimize memory access and consider line-buffer streaming.
-
----
-
-## Completion Estimate
-
-| Target | Estimated completion |
-|---|---:|
-| Python software pipeline | 85% |
-| FPGA RTL accelerator prototype | 75% |
-| ModelSim verification flow | 80% |
-| GitHub documentation | 85% |
-| Academic simulation-based project | 75% to 80% |
-| Real FPGA hardware deployment | 45% to 55% |
-
-The project is already strong as a **simulation-based Python + FPGA co-processing prototype**. The biggest unfinished part is real FPGA hardware integration and live Python to FPGA communication.
-
----
-
-## What This Project Is Not
-
-This project is not:
-
-- A full YOLO or object detection system
-- A full trainable CNN running completely on FPGA
-- A full fatigue detection system running only on FPGA
-- A replacement for Python-based computer vision processing
-- A ModelSim simulation of the whole camera and Python system
-- A medical diagnosis tool
-
-It is a **Python + FPGA co-processing project** where FPGA accelerates parallel ROI feature extraction and Python remains responsible for vision preprocessing, golden reference comparison, logging, and final fatigue logic.
-
----
-
 ## Author
 
-**Mahdi Ghahremani**
-
-```text
-FPGA Design
-Verilog RTL
-Computer Vision
-Embedded Systems
-CNN Acceleration
-Signal Processing
-Hardware / Software Co-Design
-```
+**[Mahdi Ghahremani (TheLouisMahdi)](https://github.com/TheLouisMahdi)**  
+Electrical Engineering student at the **University of Zanjan**, focused on **computer vision**, **FPGA/Verilog RTL**, **embedded systems**, and **AI hardware acceleration**.
